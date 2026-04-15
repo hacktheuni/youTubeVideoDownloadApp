@@ -15,7 +15,8 @@ def home():
 @app.route('/downloadVideo', methods=['GET'])
 def downloadVideo():
     videoLink = request.args.get('videoLink')
-    filepath = download_video(videoLink)
+    quality = request.args.get('quality', 'best')
+    filepath = download_video(videoLink, quality)
 
     if filepath and os.path.exists(filepath):
         try:
@@ -36,13 +37,26 @@ def downloadVideo():
 
     return "An error occurred during download."
 
-def download_video(url):
+def download_video(url, quality='best'):
     try:
-        ydl_opts = {
-            'format': 'bestvideo[height<=1080]+bestaudio/best',
-            'outtmpl': str(download_dir / '%(title)s.%(ext)s'),
-            'merge_output_format': 'mp4',
+        format_mapping = {
+            'best': 'bestvideo+bestaudio/best',
+            '1080p': 'bestvideo[height<=1080]+bestaudio/best',
+            '720p': 'bestvideo[height<=720]+bestaudio/best',
+            '480p': 'bestvideo[height<=480]+bestaudio/best',
+            'audio': 'bestaudio/best',
         }
+        
+        selected_format = format_mapping.get(quality, 'bestvideo+bestaudio/best')
+        
+        ydl_opts = {
+            'format': selected_format,
+            'outtmpl': str(download_dir / '%(title)s.%(ext)s'),
+        }
+        
+        # Only merge to mp4 if we are trying to get video
+        if quality != 'audio':
+            ydl_opts['merge_output_format'] = 'mp4'
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
